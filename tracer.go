@@ -13,14 +13,14 @@ import (
 	"go.elastic.co/apm"
 )
 
-func NewOpenTracer() *OpenTracingTracer {
-	return &OpenTracingTracer{}
+func NewTracer() *Tracer {
+	return &Tracer{}
 }
 
-type OpenTracingTracer struct {
+type Tracer struct {
 }
 
-func (OpenTracingTracer) TraceQuery(ctx context.Context, queryString string, operationName string, variables map[string]interface{}, varTypes map[string]*introspection.Type) (context.Context, trace.TraceQueryFinishFunc) {
+func (Tracer) TraceQuery(ctx context.Context, queryString string, operationName string, variables map[string]interface{}, varTypes map[string]*introspection.Type) (context.Context, trace.TraceQueryFinishFunc) {
 
 	span, spanCtx := opentracing.StartSpanFromContext(ctx, "GraphQL request")
 	span.SetTag("graphql.query", queryString)
@@ -40,13 +40,13 @@ func (OpenTracingTracer) TraceQuery(ctx context.Context, queryString string, ope
 				msg += fmt.Sprintf(" (and %d more errors)", len(errs)-1)
 			}
 			ext.Error.Set(span, true)
-			span.SetTag("graphql.error", msg)
+			span.Context.SetTag("graphql.error", msg)
 		}
-		span.Finish()
+		span.End()
 	}
 }
 
-func (OpenTracingTracer) TraceField(ctx context.Context, label, typeName, fieldName string, trivial bool, args map[string]interface{}) (context.Context, trace.TraceFieldFinishFunc) {
+func (Tracer) TraceField(ctx context.Context, label, typeName, fieldName string, trivial bool, args map[string]interface{}) (context.Context, trace.TraceFieldFinishFunc) {
 
 	var tx *apm.Transaction
 	var span *apm.Span
