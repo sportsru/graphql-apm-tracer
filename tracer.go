@@ -74,7 +74,6 @@ func (OpenTracingTracer) TraceField(ctx context.Context, label, typeName, fieldN
 				tx.Result = err.Message
 			}
 		}
-		tx.Sampled()
 
 		if tx != nil {
 			tx.End()
