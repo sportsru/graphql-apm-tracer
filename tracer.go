@@ -7,9 +7,6 @@ import (
 	"github.com/graph-gophers/graphql-go/errors"
 	"github.com/graph-gophers/graphql-go/introspection"
 	"github.com/graph-gophers/graphql-go/trace"
-	"github.com/opentracing/opentracing-go"
-	"github.com/opentracing/opentracing-go/ext"
-	"github.com/opentracing/opentracing-go/log"
 	"go.elastic.co/apm"
 )
 
@@ -22,15 +19,16 @@ type Tracer struct {
 
 func (Tracer) TraceQuery(ctx context.Context, queryString string, operationName string, variables map[string]interface{}, varTypes map[string]*introspection.Type) (context.Context, trace.TraceQueryFinishFunc) {
 
-	span, spanCtx := opentracing.StartSpanFromContext(ctx, "GraphQL request")
-	span.SetTag("graphql.query", queryString)
-
+	name := "graphql request"
 	if operationName != "" {
-		span.SetTag("graphql.operationName", operationName)
+		name = operationName
 	}
 
+	span, spanCtx := apm.StartSpan(ctx, name, "graphql request")
+	span.Context.SetTag("graphql.query", queryString)
+
 	if len(variables) != 0 {
-		span.LogFields(log.Object("graphql.variables", variables))
+		span.Context.SetLabel("graphql.variables", variables)
 	}
 
 	return spanCtx, func(errs []*errors.QueryError) {
@@ -39,7 +37,6 @@ func (Tracer) TraceQuery(ctx context.Context, queryString string, operationName 
 			if len(errs) > 1 {
 				msg += fmt.Sprintf(" (and %d more errors)", len(errs)-1)
 			}
-			ext.Error.Set(span, true)
 			span.Context.SetTag("graphql.error", msg)
 		}
 		span.End()
@@ -64,15 +61,25 @@ func (Tracer) TraceField(ctx context.Context, label, typeName, fieldName string,
 		span.Context.SetTag("graphql.type", typeName)
 		span.Context.SetTag("graphql.field", fieldName)
 		for name, value := range args {
-			span.Context.SetTag("graphql.args."+name, fmt.Sprint(value))
+			span.Context.SetLabel("graphql.args."+name, value)
 		}
 	}
 
 	return ctx, func(err *errors.QueryError) {
 		if err != nil {
+			apmErr := apm.DefaultTracer.NewError(err)
+			apmErr.Context.SetLabel("path", err.Path)
+			apmErr.Context.SetLabel("extensions", err.Extensions)
 			if tx != nil {
 				tx.Result = err.Message
+				apmErr.SetTransaction(tx)
 			}
+
+			if span != nil {
+				apmErr.SetSpan(span)
+			}
+
+			apmErr.Send()
 		}
 
 		if tx != nil {
