@@ -4,9 +4,9 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/graph-gophers/graphql-go/errors"
-	"github.com/graph-gophers/graphql-go/introspection"
-	"github.com/graph-gophers/graphql-go/trace"
+	"github.com/tribunadigital/graphql-go/errors"
+	"github.com/tribunadigital/graphql-go/introspection"
+	"github.com/tribunadigital/graphql-go/trace"
 	"go.elastic.co/apm"
 )
 
